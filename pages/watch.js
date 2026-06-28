@@ -1,0 +1,388 @@
+(function () {
+  const state = {
+    details: null,
+    episode: 1,
+    season: 1,
+    seasonDetails: null,
+    started: false,
+  };
+
+  function api() {
+    return window.RainFlixApi;
+  }
+
+  function escapeHtml(value) {
+    return api().escapeHtml(value);
+  }
+
+  function imageFallback(title, wide = false) {
+    return api().createImageFallback(title, wide);
+  }
+
+  function selectedEpisode() {
+    return state.seasonDetails?.episodes?.find(
+      (episode) => episode.episodeNumber === state.episode,
+    );
+  }
+
+  function showLoading(message = "Loading title...") {
+    const loading = document.querySelector("#watchLoading");
+    const content = document.querySelector("#watchContent");
+
+    if (loading) {
+      loading.textContent = message;
+      loading.classList.remove("hidden");
+    }
+
+    content?.classList.add("hidden");
+  }
+
+  function showContent() {
+    document.querySelector("#watchLoading")?.classList.add("hidden");
+    document.querySelector("#watchContent")?.classList.remove("hidden");
+  }
+
+  function renderError(message) {
+    const loading = document.querySelector("#watchLoading");
+
+    if (loading) {
+      loading.innerHTML = `
+        <h1 class="mb-2 text-2xl font-black text-slate-50">Title unavailable</h1>
+        <p>${escapeHtml(message)}</p>
+      `;
+      loading.classList.remove("hidden");
+    }
+
+    document.querySelector("#watchContent")?.classList.add("hidden");
+  }
+
+  function renderHero() {
+    const hero = document.querySelector("#watchHero");
+    const details = state.details;
+
+    if (!hero || !details) {
+      return;
+    }
+
+    const image = details.backdrop || details.poster || imageFallback(details.title, true);
+    const startText =
+      details.mediaType === "tv"
+        ? `Start watching S${state.season}:E${state.episode}`
+        : "Start watching movie";
+
+    hero.innerHTML = `
+      <article class="relative min-h-[28rem] overflow-hidden">
+        <img
+          class="absolute inset-0 h-full w-full object-cover opacity-55"
+          src="${image}"
+          alt=""
+          onerror="this.onerror=null;this.src='${imageFallback(details.title, true)}';"
+        />
+        <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/82 to-slate-950/20"></div>
+        <div class="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-slate-950 to-transparent"></div>
+
+        <div class="relative z-10 flex min-h-[28rem] max-w-4xl flex-col justify-end p-8">
+          <div class="mb-4 flex items-center gap-3 text-sm text-slate-300">
+            <span class="rounded-full bg-sky-400/15 px-3 py-1 font-black uppercase text-sky-300">${api().mediaLabel(details.mediaType)}</span>
+            <span>${escapeHtml(details.year)}</span>
+            <span class="rounded-full bg-blue-500/20 px-3 py-1 font-black text-sky-200">${escapeHtml(details.rating)}</span>
+            ${details.runtime ? `<span>${escapeHtml(details.runtime)}</span>` : ""}
+          </div>
+
+          <h1 class="max-w-3xl text-6xl font-black leading-none text-slate-50">
+            ${escapeHtml(details.title)}
+          </h1>
+
+          <p class="mt-5 max-w-2xl text-base leading-7 text-slate-300">
+            ${escapeHtml(details.synopsis)}
+          </p>
+        </div>
+
+        <button
+          class="absolute bottom-8 right-8 z-10 rounded-lg bg-sky-400 px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-sky-500/20 transition hover:bg-sky-300 focus-visible:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
+          type="button"
+          data-start-watch
+        >
+          ${escapeHtml(startText)}
+        </button>
+      </article>
+    `;
+
+    hero.querySelector("[data-start-watch]")?.addEventListener("click", startWatching);
+  }
+
+  function renderDetailsPanel() {
+    const panel = document.querySelector("#detailsPanel");
+    const details = state.details;
+    const episode = selectedEpisode();
+
+    if (!panel || !details) {
+      return;
+    }
+
+    panel.innerHTML = `
+      <div class="flex gap-4">
+        <img
+          class="h-32 w-24 shrink-0 rounded-lg object-cover"
+          src="${details.poster || details.backdrop || imageFallback(details.title)}"
+          alt=""
+          onerror="this.onerror=null;this.src='${imageFallback(details.title)}';"
+        />
+        <div class="min-w-0">
+          <p class="text-xs font-black uppercase tracking-wider text-sky-300">${api().mediaLabel(details.mediaType)}</p>
+          <h2 class="mt-1 text-xl font-black leading-tight text-slate-50">${escapeHtml(details.title)}</h2>
+          <p class="mt-2 text-sm text-slate-400">${escapeHtml(details.year)} &middot; ${escapeHtml(details.rating)} rating</p>
+        </div>
+      </div>
+
+      <div class="mt-5 border-t border-blue-900/70 pt-5">
+        <h3 class="text-sm font-black uppercase tracking-wider text-slate-300">Synopsis</h3>
+        <p class="mt-3 text-sm leading-6 text-slate-400">${escapeHtml(details.synopsis)}</p>
+      </div>
+
+      ${
+        details.mediaType === "tv" && episode
+          ? `
+            <div class="mt-5 border-t border-blue-900/70 pt-5">
+              <h3 class="text-sm font-black uppercase tracking-wider text-slate-300">Current episode</h3>
+              <p class="mt-3 font-bold text-slate-100">S${state.season}:E${state.episode} ${escapeHtml(episode.title)}</p>
+              <p class="mt-2 text-sm leading-6 text-slate-400">${escapeHtml(episode.synopsis)}</p>
+            </div>
+          `
+          : ""
+      }
+    `;
+  }
+
+  function renderPlayer() {
+    const shell = document.querySelector("#playerShell");
+    const details = state.details;
+
+    if (!shell || !details) {
+      return;
+    }
+
+    if (!state.started) {
+      const text =
+        details.mediaType === "tv"
+          ? `Start watching S${state.season}:E${state.episode}`
+          : "Start watching movie";
+
+      shell.innerHTML = `
+        <div class="grid aspect-video place-items-center bg-slate-950 p-8 text-center">
+          <div>
+            <p class="text-sm text-slate-400">Ready to stream</p>
+            <button
+              class="mt-4 rounded-lg bg-sky-400 px-6 py-3 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
+              type="button"
+              data-start-watch
+            >
+              ${escapeHtml(text)}
+            </button>
+          </div>
+        </div>
+      `;
+      shell.querySelector("[data-start-watch]")?.addEventListener("click", startWatching);
+      return;
+    }
+
+    const src = api().buildStreamUrl({
+      mediaType: details.mediaType,
+      id: details.id,
+      season: state.season,
+      episode: state.episode,
+    });
+
+    shell.innerHTML = `
+      <iframe
+        class="aspect-video w-full bg-black"
+        src="${src}"
+        title="${escapeHtml(details.title)} player"
+        allowfullscreen
+        referrerpolicy="origin"
+      ></iframe>
+    `;
+  }
+
+  function syncWatchHash() {
+    if (!state.details) {
+      return;
+    }
+
+    const hash = api().buildWatchUrl(state.details, state.season, state.episode);
+
+    if (window.location.hash !== hash) {
+      window.history.replaceState(null, "", hash);
+    }
+  }
+
+  function startWatching() {
+    state.started = true;
+    renderPlayer();
+    syncWatchHash();
+
+    document.querySelector("#playerShell")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  async function selectEpisode(episodeNumber) {
+    state.episode = Number.parseInt(episodeNumber, 10) || 1;
+    syncWatchHash();
+    renderHero();
+    renderDetailsPanel();
+    renderEpisodeSection();
+
+    if (state.started) {
+      renderPlayer();
+    }
+  }
+
+  async function loadSeason(seasonNumber) {
+    state.season = Number.parseInt(seasonNumber, 10) || 1;
+    state.episode = 1;
+    state.seasonDetails = await api().getSeasonDetails(state.details.id, state.season);
+
+    renderHero();
+    renderDetailsPanel();
+    renderEpisodeSection();
+
+    if (state.started) {
+      renderPlayer();
+    }
+  }
+
+  function renderEpisodeSection() {
+    const section = document.querySelector("#episodeSection");
+    const details = state.details;
+
+    if (!section || !details || details.mediaType !== "tv") {
+      section?.classList.add("hidden");
+      return;
+    }
+
+    const episodes = state.seasonDetails?.episodes || [];
+
+    section.classList.remove("hidden");
+    section.innerHTML = `
+      <div class="mb-5 flex items-center justify-between gap-4">
+        <div>
+          <h2 id="episodesTitle" class="text-2xl font-black text-slate-50">
+            Episodes
+          </h2>
+          <p class="mt-2 text-sm text-slate-400">
+            ${escapeHtml(state.seasonDetails?.synopsis || "Choose an episode to update the stream.")}
+          </p>
+        </div>
+
+        <label class="flex items-center gap-3 text-sm font-bold text-slate-300">
+          Season
+          <select
+            id="seasonSelect"
+            class="h-10 rounded-lg border border-blue-900/70 bg-blue-950/30 px-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/10"
+          >
+            ${details.seasons
+              .map(
+                (season) => `
+                  <option value="${season.seasonNumber}" ${season.seasonNumber === state.season ? "selected" : ""}>
+                    ${escapeHtml(season.name)} (${season.episodeCount})
+                  </option>
+                `,
+              )
+              .join("")}
+          </select>
+        </label>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        ${episodes
+          .map((episode) => {
+            const isActive = episode.episodeNumber === state.episode;
+
+            return `
+              <button
+                class="group grid grid-cols-[9rem_1fr] gap-4 rounded-lg border p-3 text-left transition ${isActive ? "border-sky-400 bg-sky-400/10" : "border-blue-900/70 bg-blue-950/20 hover:border-sky-500/70 hover:bg-sky-400/10"}"
+                type="button"
+                data-episode="${episode.episodeNumber}"
+              >
+                <img
+                  class="aspect-video w-full rounded object-cover"
+                  src="${episode.image || details.backdrop || details.poster || imageFallback(details.title, true)}"
+                  alt=""
+                  loading="lazy"
+                  onerror="this.onerror=null;this.src='${imageFallback(details.title, true)}';"
+                />
+                <span class="min-w-0">
+                  <span class="block text-xs font-black uppercase tracking-wider text-sky-300">Episode ${episode.episodeNumber}</span>
+                  <span class="mt-1 block truncate font-black text-slate-50">${escapeHtml(episode.title)}</span>
+                  <span class="mt-2 line-clamp-2 block text-sm leading-5 text-slate-400">${escapeHtml(episode.synopsis)}</span>
+                </span>
+              </button>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+
+    section.querySelector("#seasonSelect")?.addEventListener("change", (event) => {
+      showLoading("Loading season...");
+      loadSeason(event.target.value)
+        .then(showContent)
+        .catch(() => {
+          showContent();
+          renderEpisodeSection();
+        });
+    });
+
+    section.querySelectorAll("[data-episode]").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectEpisode(button.getAttribute("data-episode"));
+      });
+    });
+  }
+
+  window.initWatchPage = async function initWatchPage(context = {}) {
+    const { mediaType, id, season, episode } = context.params || {};
+
+    showLoading();
+
+    if (!mediaType || !id) {
+      renderError("Choose a movie or series from the catalog first.");
+      return;
+    }
+
+    const normalizedType = api().normalizeMediaType(mediaType);
+    const details = await api().getDetails(normalizedType, id);
+
+    if (!details) {
+      renderError("RainFlix could not find metadata for this title.");
+      return;
+    }
+
+    state.details = details;
+    state.started = false;
+    state.season = Number.parseInt(season, 10) || 1;
+    state.episode = Number.parseInt(episode, 10) || 1;
+    state.seasonDetails = null;
+
+    if (details.mediaType === "tv") {
+      const seasonExists = details.seasons.some(
+        (item) => item.seasonNumber === state.season,
+      );
+      state.season = seasonExists ? state.season : details.seasons[0]?.seasonNumber || 1;
+      state.seasonDetails = await api().getSeasonDetails(details.id, state.season);
+
+      const episodeExists = state.seasonDetails.episodes.some(
+        (item) => item.episodeNumber === state.episode,
+      );
+      state.episode = episodeExists ? state.episode : 1;
+    }
+
+    renderHero();
+    renderPlayer();
+    renderDetailsPanel();
+    renderEpisodeSection();
+    showContent();
+  };
+})();

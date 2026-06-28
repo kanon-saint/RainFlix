@@ -1,0 +1,39 @@
+<section
+  class="mx-auto w-full max-w-[1440px] px-6 py-8 md:px-10 lg:px-12"
+  aria-label="Watch title"
+>
+  <div
+    id="watchLoading"
+    class="rounded-xl border border-blue-900/70 bg-blue-950/20 p-8 text-slate-400"
+  >
+    Loading title...
+  </div>
+
+  <div id="watchContent" class="hidden">
+    <section
+      id="watchHero"
+      class="overflow-hidden rounded-xl border border-blue-900/70 bg-blue-950/20 shadow-2xl shadow-black/40"
+    ></section>
+
+    <section class="mt-8 grid grid-cols-[minmax(0,1fr)_360px] gap-6">
+      <div class="min-w-0">
+        <section
+          id="playerShell"
+          class="overflow-hidden rounded-xl border border-blue-900/70 bg-slate-950 shadow-2xl shadow-black/35"
+          aria-label="Streaming player"
+        ></section>
+
+        <section
+          id="episodeSection"
+          class="mt-8 hidden"
+          aria-labelledby="episodesTitle"
+        ></section>
+      </div>
+
+      <aside
+        id="detailsPanel"
+        class="h-fit rounded-xl border border-blue-900/70 bg-blue-950/20 p-5"
+      ></aside>
+    </section>
+  </div>
+</section>
