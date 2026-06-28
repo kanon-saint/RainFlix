@@ -4,7 +4,6 @@
     episode: 1,
     season: 1,
     seasonDetails: null,
-    started: false,
   };
 
   function api() {
@@ -25,12 +24,24 @@
     );
   }
 
-  function showLoading(message = "Loading title...") {
+  function showLoading() {
     const loading = document.querySelector("#watchLoading");
     const content = document.querySelector("#watchContent");
 
     if (loading) {
-      loading.textContent = message;
+      loading.innerHTML = `
+        <div class="space-y-5">
+          <div class="aspect-video w-full animate-pulse rounded-xl bg-blue-950/50"></div>
+          <div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_360px]">
+            <div class="space-y-3">
+              <div class="h-6 w-48 animate-pulse rounded bg-blue-950/60"></div>
+              <div class="h-20 animate-pulse rounded-lg bg-blue-950/40"></div>
+              <div class="h-20 animate-pulse rounded-lg bg-blue-950/40"></div>
+            </div>
+            <div class="h-40 animate-pulse rounded-xl bg-blue-950/40"></div>
+          </div>
+        </div>
+      `;
       loading.classList.remove("hidden");
     }
 
@@ -71,7 +82,7 @@
         : "Start watching movie";
 
     hero.innerHTML = `
-      <article class="relative min-h-[28rem] overflow-hidden">
+      <article class="relative h-[28rem] overflow-hidden">
         <img
           class="absolute inset-0 h-full w-full object-cover opacity-55"
           src="${image}"
@@ -81,7 +92,7 @@
         <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/82 to-slate-950/20"></div>
         <div class="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-slate-950 to-transparent"></div>
 
-        <div class="relative z-10 flex min-h-[28rem] max-w-4xl flex-col justify-end p-8">
+        <div class="relative z-10 flex h-full max-w-4xl flex-col justify-end p-8">
           <div class="mb-4 flex items-center gap-3 text-sm text-slate-300">
             <span class="rounded-full bg-sky-400/15 px-3 py-1 font-black uppercase text-sky-300">${api().mediaLabel(details.mediaType)}</span>
             <span>${escapeHtml(details.year)}</span>
@@ -93,7 +104,7 @@
             ${escapeHtml(details.title)}
           </h1>
 
-          <p class="mt-5 max-w-2xl text-base leading-7 text-slate-300">
+          <p class="mt-5 line-clamp-4 max-w-2xl text-base leading-7 text-slate-300">
             ${escapeHtml(details.synopsis)}
           </p>
         </div>
@@ -101,14 +112,19 @@
         <button
           class="absolute bottom-8 right-8 z-10 rounded-lg bg-sky-400 px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-sky-500/20 transition hover:bg-sky-300 focus-visible:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
           type="button"
-          data-start-watch
+          data-scroll-player
         >
           ${escapeHtml(startText)}
         </button>
       </article>
     `;
 
-    hero.querySelector("[data-start-watch]")?.addEventListener("click", startWatching);
+    hero.querySelector("[data-scroll-player]")?.addEventListener("click", () => {
+      document.querySelector("#playerShell")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   }
 
   function renderDetailsPanel() {
@@ -162,30 +178,6 @@
       return;
     }
 
-    if (!state.started) {
-      const text =
-        details.mediaType === "tv"
-          ? `Start watching S${state.season}:E${state.episode}`
-          : "Start watching movie";
-
-      shell.innerHTML = `
-        <div class="grid aspect-video place-items-center bg-slate-950 p-8 text-center">
-          <div>
-            <p class="text-sm text-slate-400">Ready to stream</p>
-            <button
-              class="mt-4 rounded-lg bg-sky-400 px-6 py-3 text-sm font-black text-slate-950 transition hover:bg-sky-300 focus-visible:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25"
-              type="button"
-              data-start-watch
-            >
-              ${escapeHtml(text)}
-            </button>
-          </div>
-        </div>
-      `;
-      shell.querySelector("[data-start-watch]")?.addEventListener("click", startWatching);
-      return;
-    }
-
     const src = api().buildStreamUrl({
       mediaType: details.mediaType,
       id: details.id,
@@ -216,27 +208,13 @@
     }
   }
 
-  function startWatching() {
-    state.started = true;
-    renderPlayer();
-    syncWatchHash();
-
-    document.querySelector("#playerShell")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-
   async function selectEpisode(episodeNumber) {
     state.episode = Number.parseInt(episodeNumber, 10) || 1;
     syncWatchHash();
     renderHero();
     renderDetailsPanel();
     renderEpisodeSection();
-
-    if (state.started) {
-      renderPlayer();
-    }
+    renderPlayer();
   }
 
   async function loadSeason(seasonNumber) {
@@ -248,9 +226,7 @@
     renderDetailsPanel();
     renderEpisodeSection();
 
-    if (state.started) {
-      renderPlayer();
-    }
+    renderPlayer();
   }
 
   function renderEpisodeSection() {
@@ -266,7 +242,7 @@
 
     section.classList.remove("hidden");
     section.innerHTML = `
-      <div class="mb-5 flex items-center justify-between gap-4">
+      <div class="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 id="episodesTitle" class="text-2xl font-black text-slate-50">
             Episodes
@@ -295,33 +271,29 @@
         </label>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="max-h-[24rem] overflow-y-auto rounded-xl border border-blue-900/70 bg-blue-950/20 p-2 md:max-h-[32rem]">
+        <div class="grid grid-cols-1 gap-2">
         ${episodes
           .map((episode) => {
             const isActive = episode.episodeNumber === state.episode;
 
             return `
               <button
-                class="group grid grid-cols-[9rem_1fr] gap-4 rounded-lg border p-3 text-left transition ${isActive ? "border-sky-400 bg-sky-400/10" : "border-blue-900/70 bg-blue-950/20 hover:border-sky-500/70 hover:bg-sky-400/10"}"
+                class="group flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition ${isActive ? "border-sky-400 bg-sky-400/10" : "border-blue-900/60 bg-slate-950/35 hover:border-sky-500/70 hover:bg-sky-400/10"}"
                 type="button"
                 data-episode="${episode.episodeNumber}"
               >
-                <img
-                  class="aspect-video w-full rounded object-cover"
-                  src="${episode.image || details.backdrop || details.poster || imageFallback(details.title, true)}"
-                  alt=""
-                  loading="lazy"
-                  onerror="this.onerror=null;this.src='${imageFallback(details.title, true)}';"
-                />
-                <span class="min-w-0">
-                  <span class="block text-xs font-black uppercase tracking-wider text-sky-300">Episode ${episode.episodeNumber}</span>
-                  <span class="mt-1 block truncate font-black text-slate-50">${escapeHtml(episode.title)}</span>
-                  <span class="mt-2 line-clamp-2 block text-sm leading-5 text-slate-400">${escapeHtml(episode.synopsis)}</span>
+                <span class="grid h-9 w-14 shrink-0 place-items-center rounded-lg bg-sky-400/15 text-xs font-black text-sky-300">
+                  EP ${episode.episodeNumber}
+                </span>
+                <span class="min-w-0 truncate font-black text-slate-50">
+                  ${escapeHtml(episode.title)}
                 </span>
               </button>
             `;
           })
           .join("")}
+        </div>
       </div>
     `;
 
@@ -361,7 +333,6 @@
     }
 
     state.details = details;
-    state.started = false;
     state.season = Number.parseInt(season, 10) || 1;
     state.episode = Number.parseInt(episode, 10) || 1;
     state.seasonDetails = null;

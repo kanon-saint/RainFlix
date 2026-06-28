@@ -24,8 +24,8 @@
     },
   };
 
-  function getRoute() {
-    const hash = (window.location.hash || "#home").replace(/^#/, "");
+  function getRoute(hashValue = window.location.hash) {
+    const hash = (hashValue || "#home").replace(/^#/, "");
     const [path] = hash.split("?");
     const parts = path.split("/").filter(Boolean);
     const routeName = routes[parts[0]] ? parts[0] : "home";
@@ -39,6 +39,45 @@
         episode: parts[4] || "1",
       },
     };
+  }
+
+  function shouldScrollToTop(nextRoute) {
+    const previousRoute = window.RainFlixCurrentRoute;
+
+    if (!previousRoute) {
+      return true;
+    }
+
+    const sameWatchTitle =
+      previousRoute.routeName === "watch" &&
+      nextRoute.routeName === "watch" &&
+      previousRoute.params.mediaType === nextRoute.params.mediaType &&
+      previousRoute.params.id === nextRoute.params.id;
+
+    return !sameWatchTitle;
+  }
+
+  function scrollToTopNow() {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  function handleImmediateTitleScroll(event) {
+    const link = event.target.closest('a[href^="#watch/"]');
+
+    if (
+      !link ||
+      event.defaultPrevented ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    if (shouldScrollToTop(getRoute(link.getAttribute("href")))) {
+      scrollToTopNow();
+    }
   }
 
   async function injectHtml(selector, path) {
@@ -84,14 +123,27 @@
   }
 
   async function loadRoute() {
-    const { routeName, params } = getRoute();
+    const currentRoute = getRoute();
+    const { routeName, params } = currentRoute;
     const route = routes[routeName];
+    const scrollToTop = shouldScrollToTop(currentRoute);
+
+    if (scrollToTop) {
+      scrollToTopNow();
+    }
 
     await injectHtml("#app-view", route.html);
     await loadScript(route.script);
-    window[route.init]?.({ routeName, params });
+    const initResult = window[route.init]?.({ routeName, params });
+
+    if (initResult && typeof initResult.then === "function") {
+      await initResult;
+    }
+
+    window.RainFlixCurrentRoute = currentRoute;
 
     document.querySelector("#app-view")?.focus({ preventScroll: true });
+
   }
 
   function renderLoadError(error) {
@@ -112,6 +164,7 @@
     try {
       await loadShell();
       await loadRoute();
+      document.addEventListener("click", handleImmediateTitleScroll);
 
       window.addEventListener("hashchange", () => {
         loadRoute().catch(renderLoadError);

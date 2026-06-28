@@ -1,12 +1,18 @@
 <footer
-  class="flex items-center justify-between gap-6 border-t border-blue-950/70 px-5 py-8 text-sm text-slate-500 md:px-10 lg:px-12 max-sm:flex-col max-sm:items-start"
+  class="grid items-center gap-4 border-t border-blue-950/70 px-5 py-8 text-center text-sm text-slate-500 md:grid-cols-3 md:px-10 lg:px-12"
 >
-  <div>
-    <p class="m-0 font-bold text-slate-100">RainFlix</p>
-    <p class="mt-1">A minimal movie and series catalog.</p>
-  </div>
+  <a
+    class="font-bold text-slate-100 transition hover:text-sky-300 focus-visible:text-sky-300 focus-visible:outline-none md:justify-self-start"
+    href="#home"
+    aria-label="RainFlix home"
+  >
+    RainFlix
+  </a>
 
-  <div class="flex flex-wrap items-center gap-3" aria-label="External catalogs">
+  <div
+    class="flex flex-wrap items-center justify-center gap-4"
+    aria-label="External catalogs"
+  >
     <a
       class="transition hover:text-sky-300 focus-visible:text-sky-300 focus-visible:outline-none"
       href="https://imdb.com/"
@@ -21,12 +27,20 @@
       rel="noopener noreferrer"
       >TMDb</a
     >
+
     <a
       class="transition hover:text-sky-300 focus-visible:text-sky-300 focus-visible:outline-none"
-      href="https://www.justwatch.com/"
+      href="https://vidsrc.to/"
       target="_blank"
       rel="noopener noreferrer"
-      >JustWatch</a
+      >VidSrc</a
     >
   </div>
+
+  <a
+    class="transition hover:text-sky-300 focus-visible:text-sky-300 focus-visible:outline-none md:justify-self-end"
+    href="mailto:rainermayagma9@gmail.com"
+  >
+    Contact Support
+  </a>
 </footer>

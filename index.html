@@ -26,6 +26,78 @@
         },
       };
     </script>
+    <style>
+      @keyframes rainflix-carousel-progress {
+        from {
+          transform: scaleX(0);
+        }
+
+        to {
+          transform: scaleX(1);
+        }
+      }
+
+      @keyframes rainflix-current-left {
+        from {
+          transform: translateX(0);
+        }
+
+        to {
+          transform: translateX(-100%);
+        }
+      }
+
+      @keyframes rainflix-next-left {
+        from {
+          transform: translateX(100%);
+        }
+
+        to {
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes rainflix-current-right {
+        from {
+          transform: translateX(0);
+        }
+
+        to {
+          transform: translateX(100%);
+        }
+      }
+
+      @keyframes rainflix-next-right {
+        from {
+          transform: translateX(-100%);
+        }
+
+        to {
+          transform: translateX(0);
+        }
+      }
+
+      .rainflix-current-left {
+        animation: rainflix-current-left 520ms ease both;
+      }
+
+      .rainflix-next-left {
+        animation: rainflix-next-left 520ms ease both;
+      }
+
+      .rainflix-current-right {
+        animation: rainflix-current-right 520ms ease both;
+      }
+
+      .rainflix-next-right {
+        animation: rainflix-next-right 520ms ease both;
+      }
+
+      .rainflix-progress {
+        animation: rainflix-carousel-progress 8s linear forwards;
+        transform-origin: left center;
+      }
+    </style>
     <script defer src="./scripts/config.js"></script>
     <script defer src="./scripts/rainflix-api.js"></script>
     <script defer src="./scripts/app.js"></script>

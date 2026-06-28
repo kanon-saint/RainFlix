@@ -6,6 +6,8 @@
     carouselTimer: null,
     newestMovies: [],
     newestSeries: [],
+    pendingSlide: 0,
+    slideDirection: "left",
     sources: new Set(),
     trending: [],
   };
@@ -78,7 +80,7 @@
             <span>Rating</span>
           </div>
 
-          <p class="line-clamp-4 text-sm leading-6 text-slate-300">${escapeHtml(item.synopsis)}</p>
+          <p class="line-clamp-3 text-xs leading-5 text-slate-300 md:line-clamp-4 md:text-sm md:leading-6">${escapeHtml(item.synopsis)}</p>
         </div>
       </a>
     `;
@@ -103,6 +105,47 @@
     grid.innerHTML = items.slice(0, api().PAGE_SIZE).map(cardTemplate).join("");
   }
 
+  function carouselSlideTemplate(item, animationClass = "") {
+    const image = item.backdrop || item.poster || imageFallback(item.title, true);
+    const watchUrl = api().buildWatchUrl(item);
+
+    return `
+      <article class="absolute inset-0 h-full overflow-hidden ${animationClass}">
+        <img
+          class="absolute inset-0 h-full w-full object-cover opacity-55"
+          src="${image}"
+          alt=""
+          onerror="this.onerror=null;this.src='${imageFallback(item.title, true)}';"
+        />
+        <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/20"></div>
+        <div class="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-slate-950 to-transparent"></div>
+
+        <div class="relative z-10 flex h-full max-w-4xl flex-col justify-end p-5 md:p-8">
+          <div class="mb-4 flex items-center gap-3 text-sm text-slate-300">
+            <span class="rounded-full bg-sky-400/15 px-3 py-1 font-black uppercase text-sky-300">Trending movie</span>
+            <span>${escapeHtml(item.year)}</span>
+            <span class="rounded-full bg-blue-500/20 px-3 py-1 font-black text-sky-200">${escapeHtml(item.rating)}</span>
+          </div>
+
+          <h2 class="max-w-3xl text-4xl font-black leading-none text-slate-50 md:text-6xl">
+            ${escapeHtml(item.title)}
+          </h2>
+
+          <p class="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-slate-300 md:mt-5 md:line-clamp-4 md:text-base md:leading-7">
+            ${escapeHtml(item.synopsis)}
+          </p>
+
+          <a
+            class="mt-5 w-fit rounded-lg bg-sky-400 px-5 py-3 text-sm font-black text-slate-950 shadow-xl shadow-sky-500/20 transition hover:bg-sky-300 focus-visible:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25 md:px-6"
+            href="${watchUrl}"
+          >
+            Watch now
+          </a>
+        </div>
+      </article>
+    `;
+  }
+
   function renderCarousel() {
     const carousel = document.querySelector("#trendingCarousel");
 
@@ -112,7 +155,7 @@
 
     if (!state.carouselItems.length) {
       carousel.innerHTML = `
-        <div class="relative grid min-h-[28rem] place-items-center overflow-hidden">
+        <div class="relative grid h-full place-items-center overflow-hidden">
           <div class="absolute inset-0 animate-pulse bg-gradient-to-r from-blue-950/30 via-sky-500/10 to-blue-950/30"></div>
           <div class="relative z-10 text-sm font-bold text-slate-400">Loading trending movies...</div>
         </div>
@@ -121,46 +164,29 @@
     }
 
     const item = state.carouselItems[state.activeSlide] || state.carouselItems[0];
-    const image = item.backdrop || item.poster || imageFallback(item.title, true);
-    const watchUrl = api().buildWatchUrl(item);
+    const pendingItem =
+      state.carouselItems[state.pendingSlide] || state.carouselItems[0];
+    const currentClass = state.carouselChanging
+      ? state.slideDirection === "left"
+        ? "rainflix-current-left"
+        : "rainflix-current-right"
+      : "";
+    const nextClass = state.carouselChanging
+      ? state.slideDirection === "left"
+        ? "rainflix-next-left"
+        : "rainflix-next-right"
+      : "";
 
     carousel.innerHTML = `
-      <article class="relative min-h-[28rem] overflow-hidden">
-        <div class="absolute inset-0 transition-opacity duration-500 ${state.carouselChanging ? "opacity-30" : "opacity-100"}">
-          <img
-            class="absolute inset-0 h-full w-full object-cover opacity-55"
-            src="${image}"
-            alt=""
-            onerror="this.onerror=null;this.src='${imageFallback(item.title, true)}';"
-          />
-          <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/20"></div>
-          <div class="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-slate-950 to-transparent"></div>
+      <div class="relative h-full overflow-hidden">
+        <div class="absolute left-0 right-0 top-0 z-30 h-1 bg-blue-950/80">
+          <div class="h-full bg-sky-400 ${state.carouselChanging ? "w-full animate-pulse" : "rainflix-progress"}"></div>
         </div>
 
-        <div class="relative z-10 flex min-h-[28rem] max-w-4xl flex-col justify-end p-8 transition duration-500 ${state.carouselChanging ? "translate-y-3 opacity-0" : "translate-y-0 opacity-100"}">
-          <div class="mb-4 flex items-center gap-3 text-sm text-slate-300">
-            <span class="rounded-full bg-sky-400/15 px-3 py-1 font-black uppercase text-sky-300">Trending movie</span>
-            <span>${escapeHtml(item.year)}</span>
-            <span class="rounded-full bg-blue-500/20 px-3 py-1 font-black text-sky-200">${escapeHtml(item.rating)}</span>
-          </div>
+        ${carouselSlideTemplate(item, currentClass)}
+        ${state.carouselChanging ? carouselSlideTemplate(pendingItem, nextClass) : ""}
 
-          <h2 class="max-w-3xl text-6xl font-black leading-none text-slate-50">
-            ${escapeHtml(item.title)}
-          </h2>
-
-          <p class="mt-5 max-w-2xl text-base leading-7 text-slate-300">
-            ${escapeHtml(item.synopsis)}
-          </p>
-        </div>
-
-        <a
-          class="absolute bottom-8 right-8 z-10 rounded-lg bg-sky-400 px-6 py-3 text-sm font-black text-slate-950 shadow-xl shadow-sky-500/20 transition hover:bg-sky-300 focus-visible:bg-sky-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400/25 ${state.carouselChanging ? "pointer-events-none opacity-50" : "opacity-100"}"
-          href="${watchUrl}"
-        >
-          Watch now
-        </a>
-
-        <div class="absolute left-8 top-8 z-10 flex gap-2">
+        <div class="absolute left-8 top-8 z-30 flex gap-2">
           ${state.carouselItems
             .map(
               (_, index) => `
@@ -174,19 +200,7 @@
             )
             .join("")}
         </div>
-
-        ${
-          state.carouselChanging
-            ? `
-              <div class="absolute inset-0 z-20 grid place-items-center bg-slate-950/35 backdrop-blur-[2px]">
-                <div class="rounded-full border border-sky-400/30 bg-slate-950/80 px-4 py-2 text-sm font-black text-sky-200 shadow-xl shadow-black/30">
-                  Loading next title...
-                </div>
-              </div>
-            `
-            : ""
-        }
-      </article>
+      </div>
     `;
 
     carousel.querySelectorAll("[data-slide]").forEach((button) => {
@@ -208,14 +222,18 @@
       return;
     }
 
+    state.pendingSlide = normalizedIndex;
+    state.slideDirection = normalizedIndex > state.activeSlide ? "left" : "right";
     state.carouselChanging = true;
     renderCarousel();
 
     window.setTimeout(() => {
       state.activeSlide = normalizedIndex;
+      state.pendingSlide = normalizedIndex;
       state.carouselChanging = false;
       renderCarousel();
-    }, 380);
+      startCarouselTimer();
+    }, 540);
   }
 
   function startCarouselTimer() {
@@ -250,6 +268,8 @@
     ]);
     state.activeSlide = 0;
     state.carouselChanging = false;
+    state.pendingSlide = 0;
+    state.slideDirection = "left";
 
     renderCarousel();
     renderFeedMeta();

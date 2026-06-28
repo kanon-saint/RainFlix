@@ -1,31 +1,20 @@
 (function () {
-  let hashHandler;
   let searchHandler;
   let blurHandler;
+  let resultClickHandler;
   let activeSearchRequest = 0;
   let debounceTimer;
 
-  function getRouteName() {
-    return ((window.location.hash || "#home").replace("#", "") || "home").split(
-      "/",
-    )[0];
-  }
-
-  function setActiveLink() {
-    const routeName = getRouteName();
-    const activeName = routeName === "movies" || routeName === "series"
-      ? routeName
-      : "home";
-
-    document.querySelectorAll("[data-route-link]").forEach((link) => {
-      const isActive = link.getAttribute("data-route-link") === activeName;
-
-      link.classList.toggle("bg-sky-400", isActive);
-      link.classList.toggle("text-slate-950", isActive);
-      link.classList.toggle("shadow-lg", isActive);
-      link.classList.toggle("shadow-sky-500/20", isActive);
-      link.classList.toggle("text-slate-400", !isActive);
-    });
+  function searchGhostRows() {
+    return Array.from({ length: 3 }, () => (
+      `<div class="flex gap-3 border-b border-blue-950/70 p-3 last:border-b-0">
+        <div class="h-16 w-11 shrink-0 animate-pulse rounded bg-blue-950/70"></div>
+        <div class="min-w-0 flex-1 pt-1">
+          <div class="h-4 w-3/4 animate-pulse rounded bg-blue-950/70"></div>
+          <div class="mt-3 h-3 w-1/2 animate-pulse rounded bg-blue-950/50"></div>
+        </div>
+      </div>`
+    )).join("");
   }
 
   function escapeHtml(value) {
@@ -116,20 +105,18 @@
   window.initHeader = function initHeader() {
     const searchInput = document.querySelector("#globalSearch");
 
-    if (hashHandler) {
-      window.removeEventListener("hashchange", hashHandler);
-    }
-
-    hashHandler = setActiveLink;
-    window.addEventListener("hashchange", hashHandler);
-    setActiveLink();
-
     if (searchHandler && searchInput) {
       searchInput.removeEventListener("input", searchHandler);
     }
 
     if (blurHandler) {
       document.removeEventListener("click", blurHandler);
+    }
+
+    if (resultClickHandler) {
+      document
+        .querySelector("#searchDropdown")
+        ?.removeEventListener("click", resultClickHandler);
     }
 
     searchHandler = (event) => {
@@ -142,7 +129,7 @@
       }
 
       setDropdownContent(
-        '<div class="animate-pulse px-4 py-3 text-sm text-slate-400">Searching TMDb...</div>',
+        searchGhostRows(),
       );
 
       debounceTimer = window.setTimeout(() => {
@@ -169,5 +156,18 @@
     };
 
     document.addEventListener("click", blurHandler);
+
+    resultClickHandler = (event) => {
+      if (event.target.closest("a")) {
+        hideDropdown();
+        if (searchInput) {
+          searchInput.value = "";
+        }
+      }
+    };
+
+    document
+      .querySelector("#searchDropdown")
+      ?.addEventListener("click", resultClickHandler);
   };
 })();
